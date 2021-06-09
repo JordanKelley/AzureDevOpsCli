@@ -27,9 +27,23 @@ function createRepo{
     return $repo.id
 }
 
+function createTeam {
+    param (
+        [string]$teamName,
+        [string]$org,
+        [string]$projectID
+    )
+    Write-Host "`nCreating team with name $($teamName) . . . " 
+    $createTeam = az devops team create --name $teamName  --org $org -p $projectID -o json | ConvertFrom-Json
+    Write-Host "Created team with name $($createTeam.name) and Id $($createTeam.id)"
+    return $createTeam.id
+}
+
 $org = 'https://dev.azure.com/jordankelley105/'
 
 # scaffolding
 $projectId = createProject -org $org -projectName 'TestingProject' -process 'Agile' -sourceControl 'git' -visibility 'private'
 
 createRepo -org $org -projectID $projectId -repoName 'TestingRepo'
+
+createTeam -teamName 'TestingTeam' -org $org -projectID $projectId
