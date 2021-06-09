@@ -39,7 +39,24 @@ function createTeam {
     return $createTeam.id
 }
 
+function addMember {
+    param (
+        [string]$teamName,
+        [string]$memberId
+    )
+    $listGroups = az devops security group list --org $org -p $projectID -o json | ConvertFrom-Json
+    
+    foreach ($grp in $listGroups.graphGroups) {
+        if ($grp.displayName -eq $teamName) {
+            Write-Host "Adding member $memberId"
+            az devops security group membership add --group-id $grp.descriptor --member-id $memberId
+            Write-Host "Team member $memberId added"
+        }
+    }
+}
+
 $org = 'https://dev.azure.com/jordankelley105/'
+$teamName = 'TestingTeam'
 
 # scaffolding
 $projectId = createProject -org $org -projectName 'TestingProject' -process 'Agile' -sourceControl 'git' -visibility 'private'
@@ -47,3 +64,5 @@ $projectId = createProject -org $org -projectName 'TestingProject' -process 'Agi
 createRepo -org $org -projectID $projectId -repoName 'TestingRepo'
 
 createTeam -teamName 'TestingTeam' -org $org -projectID $projectId
+
+addMember -teamName $teamName -memberId 'jordan.kelley105@gmail.com'
