@@ -73,7 +73,6 @@ function displayPermissions{
 
 function addTeamAdmins {
     param (
-        [string] $adminGrpDescriptor,
         [string] $org,
         [string] $projectId,
         [string] $teamId,
@@ -117,4 +116,4 @@ $createdTeam = createTeam -teamName 'TestingTeam' -org $org -projectID $projectI
 
 addMember -teamName $teamName -memberId 'jordan.kelley105@gmail.com'
 
-addTeamAdmins -org $org -projectId $projectId -teamId $createdTeam.id -adminGrpDescriptor $createdTeam.identity.descriptor -teamName $teamName
+addTeamAdmins -org $org -projectId $projectId -teamId $createdTeam.id -teamName $teamName
