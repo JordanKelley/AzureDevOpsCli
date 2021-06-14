@@ -97,16 +97,14 @@ function addTeamAdmins {
         [string] $org,
         [string] $projectId,
         [string] $teamId,
-        [string] $teamName
+        [string] $teamName,
+        [string] $createdTeamDescriptor
     )
 
     $listGroups = az devops security group list --org $org -p $projectID -o json | ConvertFrom-Json
 
     foreach ($grp in $listGroups.graphGroups) {
         if ($grp.displayName -eq $teamName) {
-            $teamAdminGroupName = $teamName + ' Admins'
-            
-            $createdGroup = createGroup -groupDescriptor $grp.descriptor -groupName $grp.displayName -org $org -projectId $projectId -name $teamAdminGroupName
 
             $securityToken = $projectID + '\' + $teamID 
 
@@ -137,4 +135,7 @@ $createdTeam = createTeam -teamName 'TestingTeam' -org $org -projectID $projectI
 
 addMember -teamName $teamName -memberId 'jordan.kelley105@gmail.com'
 
-addTeamAdmins -org $org -projectId $projectId -teamId $createdTeam.id -teamName $teamName
+$teamAdminGroupName = $teamName + ' Admins'
+$createdGroup = createGroup -groupDescriptor $grp.descriptor -groupName $grp.displayName -org $org -projectId $projectId -name $teamAdminGroupName
+
+addTeamAdmins -org $org -projectId $projectId -teamId $createdTeam.id -teamName $teamName -createdTeamDescriptor $createdGroup.discriptor
