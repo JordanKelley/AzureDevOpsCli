@@ -73,54 +73,49 @@ function displayPermissions{
 
 function createGroup {
     param (
-        [string] $groupDescriptor,
-        [string] $groupName,
         [string] $org, 
         [string] $projectId,
-        [string] $name
+        [string] $teamName,
+        [string] $groupName
     )
 
-    if ([string]::IsNullOrEmpty($groupDescriptor)) {
-        $createdGroup = az devops security group create --org $org -p $projectID --name $name -o json | ConvertFrom-Json
+    if ([string]::IsNullOrEmpty($teamName)) {
+        $createdGroup = az devops security group create --org $org -p $projectId --name $groupName -o json | ConvertFrom-Json
         Write-Host "`nCreated new group with name $($name)."
         return $createdGroup
     }
     else {
-        $createdGroup = az devops security group create --org $org -p $projectID --name $name --groups $groupDescriptor -o json | ConvertFrom-Json
-        Write-Host "`nCreated new group with name $($name) and added to the team $groupName."
-        return $createdGroup
+        $listGroups = az devops security group list --org $org -p $projectID -o json | ConvertFrom-Json
+        foreach ($grp in $listGroups.graphGroups) {
+            if ($grp.displayName -eq $teamName) {
+                $createdGroup = az devops security group create --org $org -p $projectId --name $groupName --groups $grp.descriptor -o json | ConvertFrom-Json
+                Write-Host "`nCreated new group with name $($groupName) and added to the team $teamName."
+                return $createdGroup
+            }
+        }
     }
 }
 
-function addTeamAdmins {
+function updateGroupToAdmin {
     param (
         [string] $org,
         [string] $projectId,
         [string] $teamId,
-        [string] $teamName,
-        [string] $createdTeamDescriptor
+        [string] $adminGroupDescriptor
     )
+    $securityToken = $projectID + '\' + $teamID 
 
-    $listGroups = az devops security group list --org $org -p $projectID -o json | ConvertFrom-Json
+    #display current permissions
+    $showIdentityPermissions = az devops security permission show --org $org --id 5a27515b-ccd7-42c9-84f1-54c998f03866 --token $securityToken --subject $adminGroupDescriptor -o json | ConvertFrom-Json
+    Write-Host "Current permissions for this group"
+    displayPermissions -permissionsResponse $showIdentityPermissions
 
-    foreach ($grp in $listGroups.graphGroups) {
-        if ($grp.displayName -eq $teamName) {
+    #update permissions to manage : Adding team admins is equivalent to giving them manage permissions (i.e bit 31)
+    az devops security permission update --allow-bit 31 --org $org --id 5a27515b-ccd7-42c9-84f1-54c998f03866 --token $securityToken --subject $adminGroupDescriptor -o json | ConvertFrom-Json
+    Write-Host "`nGiving admins permissions to the requested group. Updated permissions:"
 
-            $securityToken = $projectID + '\' + $teamID 
-
-            #display current permissions
-            $showIdentityPermissions = az devops security permission show --org $org --id 5a27515b-ccd7-42c9-84f1-54c998f03866 --token $securityToken --subject $createdGroup.descriptor -o json | ConvertFrom-Json
-            Write-Host "Current permissions for this group"
-            displayPermissions -permissionsResponse $showIdentityPermissions
-
-            #update permissions to manage : Adding team admins is equivalent to giving them manage permissions (i.e bit 31)
-            az devops security permission update --allow-bit 31 --org $org --id 5a27515b-ccd7-42c9-84f1-54c998f03866 --token $securityToken --subject $createdGroup.descriptor -o json | ConvertFrom-Json
-            Write-Host "`nGiving admins permissions to the requested group. Updated permissions:"
-
-            $showIdentityPermissions = az devops security permission show --org $org --id 5a27515b-ccd7-42c9-84f1-54c998f03866 --token $securityToken --subject $createdGroup.descriptor -o json | ConvertFrom-Json
-            displayPermissions -permissionsResponse $showIdentityPermissions
-        }
-    }
+    $showIdentityPermissions = az devops security permission show --org $org --id 5a27515b-ccd7-42c9-84f1-54c998f03866 --token $securityToken --subject $adminGroupDescriptor -o json | ConvertFrom-Json
+    displayPermissions -permissionsResponse $showIdentityPermissions
 }
 
 $org = 'https://dev.azure.com/jordankelley105/'
@@ -136,6 +131,6 @@ $createdTeam = createTeam -teamName 'TestingTeam' -org $org -projectID $projectI
 addMember -teamName $teamName -memberId 'jordan.kelley105@gmail.com'
 
 $teamAdminGroupName = $teamName + ' Admins'
-$createdGroup = createGroup -groupDescriptor $grp.descriptor -groupName $grp.displayName -org $org -projectId $projectId -name $teamAdminGroupName
+$adminGroup = createGroup -org $org -projectId $projectId -teamName $teamName -groupName $teamAdminGroupName
 
-addTeamAdmins -org $org -projectId $projectId -teamId $createdTeam.id -teamName $teamName -createdTeamDescriptor $createdGroup.discriptor
+updateGroupToAdmin -org $org -projectId $projectId -teamId $createdTeam.id -adminGroupDescriptor $adminGroup.descriptor
