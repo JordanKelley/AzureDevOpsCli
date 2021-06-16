@@ -118,11 +118,34 @@ function updateGroupToAdmin {
     displayPermissions -permissionsResponse $showIdentityPermissions
 }
 
+function createTeamArea {
+    param (
+        [string]$org,
+        [string]$projectId,
+        [string]$areaName
+    )
+
+    $createAreasForTeam = az boards area project create --name $areaName --org $org --project $projectId -o json | ConvertFrom-Json
+    Write-Host "`nNew area created : $($createAreasForTeam.name) with id : $($createAreasForTeam.id)"
+}
+
+function configureDefaultArea {
+    param (
+        [string] $org,
+        [string] $projectId,
+        [string] $teamId,
+        [string] $defaultAreaPath
+    )
+    az boards area team add --path $defaultAreaPath --set-as-default --team $teamId --org $org --project $projectId -o json | ConvertFrom-Json
+    Write-Host "Default area changed to: $defaultAreaPath"
+}
+
 $org = 'https://dev.azure.com/jordankelley105/'
 $teamName = 'TestingTeam'
+$projectName = 'TestingProject'
 
 # scaffolding
-$projectId = createProject -org $org -projectName 'TestingProject' -process 'Agile' -sourceControl 'git' -visibility 'private'
+$projectId = createProject -org $org -projectName $projectName -process 'Agile' -sourceControl 'git' -visibility 'private'
 
 createRepo -org $org -projectID $projectId -repoName 'TestingRepo'
 
@@ -134,3 +157,8 @@ $teamAdminGroupName = $teamName + ' Admins'
 $adminGroup = createGroup -org $org -projectId $projectId -teamName $teamName -groupName $teamAdminGroupName
 
 updateGroupToAdmin -org $org -projectId $projectId -teamId $createdTeam.id -adminGroupDescriptor $adminGroup.descriptor
+
+createTeamArea -org $org -projectId $projectId -areaName $teamName
+
+$areaPath = $projectName + '\' + $teamName
+configureDefaultArea -org $org -projectId $projectId -teamId $createdTeam.id -defaultAreaPath $areaPath
