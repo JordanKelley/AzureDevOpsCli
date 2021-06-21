@@ -140,6 +140,101 @@ function configureDefaultArea {
     Write-Host "Default area changed to: $defaultAreaPath"
 }
 
+function get_token{
+    param(
+        [String]$iterationsNodeID,
+        [String]$rootIterationID,
+        [String]$childIterationID
+    )
+    $rootStr = 'vstfs:///Classification/Node/'
+    $tokenStr = ''
+    if($iterationsNodeID)
+    {
+        $tokenStr = $rootStr + $iterationsNodeID
+        if($rootIterationID)
+        {
+            $tokenStr = $tokenStr + ':' + $rootStr + $rootIterationID
+            if($childIterationID)
+            {
+                $tokenStr = $tokenStr + ':' + $rootStr + $childIterationID
+            }
+            return $tokenStr
+        }
+    }
+    else {
+        return $null
+    }
+}
+
+function setPermissions{
+    param(
+        [String]$org,
+        [String]$subject,
+        [String]$tokenStr,
+        [Int]$allowBit,
+        [Int]$denyBit
+    )
+    # boards iterations namespace id
+    $namespaceId = 'bf7bfa03-b2b7-47db-8113-fa2e002cc5b1'
+    
+    $aclList = az devops security permission list --org $org --subject $subject --id $namespaceId -o json | ConvertFrom-Json
+    foreach($acl in $aclList){
+        if ($($acl.token) -contains $tokenStr)
+        {
+            # Show permissions
+            $displayPermissions = az devops security permission show --org $org --id $namespaceId --subject $subject --token $tokenStr -o json | ConvertFrom-Json
+            Write-Host "`nCurrent iterations related permissions for admin group :"
+            displayPermissions -permissionsResponse $displayPermissions
+
+            # Update permissions
+            if($allowBit)
+            {
+                $updatePermissions = az devops security permission update --org $org --id $namespaceId --subject $subject --token $tokenStr --allow-bit $allowBit -o json | ConvertFrom-Json    
+            }
+
+            if($denyBit)
+            {
+                $updatePermissions = az devops security permission update --org $org --id $namespaceId --subject $subject --token $tokenStr --deny-bit $denyBit -o json | ConvertFrom-Json    
+            }
+            
+            $displayPermissions = az devops security permission show --org $org --id $namespaceId --subject $subject --token $tokenStr -o json | ConvertFrom-Json
+            Write-Host "Updated iterations related permissions for admin group :"
+            displayPermissions -permissionsResponse $displayPermissions
+        }
+    }
+}
+
+function projectLevelIterationsSettings {
+    param (
+        [string] $org,
+        [string] $projectId,
+        [string] $rootIterationName,
+        [string] $subject,
+        [int] $allow,
+        [int] $deny,
+        [string[]] $childIterationNamesList
+    )
+    # Project level iterations
+    $projectRootIterationList = az boards iteration project list --org $org --project $projectID -o json | ConvertFrom-Json
+    $iterationsNodeID = $projectRootIterationList.identifier
+
+    $projectRootIterationCreate = az boards iteration project create --name $rootIterationName --org $org --project $projectID -o json | ConvertFrom-Json
+    if ($projectRootIterationCreate) {
+        Write-Host "`nRoot Iteration created with name: $($projectRootIterationCreate.name)"
+        foreach ($entry in $childIterationNamesList) {
+            $childIterationName = $rootIterationName + ' ' + $entry.ToString()
+            #$projectRootIterationCreate
+            $projectChildIterationCreate = az boards iteration project create --name $childIterationName --path $projectRootIterationCreate.path --org $org --project $projectID -o json | ConvertFrom-Json
+            Write-Host "Child Iteration created with name: $($projectChildIterationCreate.name)"
+        }
+
+        # Add permissions at root iterations
+        $rootIterationToken = get_token -iterationsNodeID $iterationsNodeID -rootIterationID  $($projectRootIterationCreate.identifier)
+        $updatePermissions = setPermissions -org $org -tokenStr $rootIterationToken -subject $subject -allowBit $allow -denyBit $deny
+    }
+    return $projectRootIterationCreate.identifier
+}
+
 $org = 'https://dev.azure.com/jordankelley105/'
 $teamName = 'TestingTeam'
 $projectName = 'TestingProject'
@@ -162,3 +257,8 @@ createTeamArea -org $org -projectId $projectId -areaName $teamName
 
 $areaPath = $projectName + '\' + $teamName
 configureDefaultArea -org $org -projectId $projectId -teamId $createdTeam.id -defaultAreaPath $areaPath
+
+# Configure project level iterations with this group/team and grant permissions for admins group
+$projectIterationNameForThisTeam = $teamName + ' iteration' 
+$childIterationNamesList = @('ChildIteration1', 'ChildIteration2')
+$rootIterationId = projectLevelIterationsSettings -org $org -projectID $projectID -rootIterationName $projectIterationNameForThisTeam -subject $adminGroup.descriptor -allow 7 -childIterationNamesList $childIterationNamesList
