@@ -235,6 +235,87 @@ function projectLevelIterationsSettings {
     return $projectRootIterationCreate.identifier
 }
 
+function SelectObject([object]$inputObject, [string]$propertyName) {
+    $objectExists = Get-Member -InputObject $inputObject -Name $propertyName
+
+    if ($objectExists) {
+        return $inputObject | Select-Object -ExpandProperty $propertyName
+    }
+    return $null  
+}
+
+function printBacklogLevels([object]$boardsTeamSettings) {
+    if ($boardsTeamSettings) {
+        $epics = SelectObject -inputObject $boardsTeamSettings.backlogVisibilities -propertyName Microsoft.EpicCategory
+        Write-Host "Epics: $epics"
+        
+        $features = SelectObject -inputObject $boardsTeamSettings.backlogVisibilities -propertyName Microsoft.FeatureCategory
+        Write-Host "Features: $features"
+        
+        $requirements = SelectObject -inputObject $boardsTeamSettings.backlogVisibilities -propertyName Microsoft.RequirementCategory
+        Write-Host "Stories: $requirements"
+        
+        $days = $boardsTeamSettings.workingDays
+        Write-Host "Working days : $days"
+    }
+}
+
+function setUpGeneralBoardSettings {
+    param(
+        [String]$org,
+        [String]$projectID,
+        [String]$teamID,
+        [Bool]$epics,
+        [Bool]$stories,
+        [Bool]$features
+    )
+
+    # Team boards settings
+    $currentBoardsTeamSettings = az devops invoke --org $org --area work --resource teamsettings --api-version '5.0' --http-method GET --route-parameters project=$projectID team=$teamID  -o json | ConvertFrom-Json
+    Write-Host "`nCurrent general team configurations"
+    "Current backlog navigation levels"
+    printBacklogLevels -boardsTeamSettings $currentBoardsTeamSettings
+
+    #update these settings
+    $invokeRequestsPath = Join-Path $PSScriptRoot \InvokeRequests\
+    $contentFileName = $invokeRequestsPath + 'updateTeamConfig.txt'
+    $contentToStoreInFile = [System.Text.StringBuilder]::new()
+    [void]$contentToStoreInFile.Append( "{")
+
+    if ($epics -or $stories -or $features) {
+        [void]$contentToStoreInFile.Append(  "`"backlogVisibilities`" : { " )
+        if ($epics -eq $True) {
+            [void]$contentToStoreInFile.Append(  "`"Microsoft.EpicCategory`" : true " )
+        }
+        else {
+            [void]$contentToStoreInFile.Append(  "`"Microsoft.EpicCategory`" : false " )
+        }
+
+        if ($features -eq $True) {
+            [void]$contentToStoreInFile.Append(  ",`"Microsoft.FeatureCategory`" : true " )
+        }
+        else {
+            [void]$contentToStoreInFile.Append(  ",`"Microsoft.FeatureCategory`" : false " )
+        }
+        
+        if ($stories -eq $True) {
+            [void]$contentToStoreInFile.Append(  ",`"Microsoft.RequirementCategory`" : true " )
+        }
+        else {
+            [void]$contentToStoreInFile.Append(  ",`"Microsoft.RequirementCategory`" : false " )
+        }
+
+        [void]$contentToStoreInFile.Append( "}" ) 
+    }
+    [void]$contentToStoreInFile.Append( "}" )
+    Set-Content -Path $contentFileName -Value $contentToStoreInFile.ToString()
+    
+    $updatedBoardsTeamSettings = az devops invoke --org $org --area work --resource teamsettings --api-version '5.0' --http-method PATCH --route-parameters project=$projectID team=$teamID --in-file $contentFileName -o json | ConvertFrom-Json
+    "Updated backlog navigation levels"
+    printBacklogLevels -boardsTeamSettings $updatedBoardsTeamSettings
+}
+
+
 $org = 'https://dev.azure.com/jordankelley105/'
 $teamName = 'TestingTeam'
 $projectName = 'TestingProject'
@@ -262,3 +343,14 @@ configureDefaultArea -org $org -projectId $projectId -teamId $createdTeam.id -de
 $projectIterationNameForThisTeam = $teamName + ' iteration' 
 $childIterationNamesList = @('ChildIteration1', 'ChildIteration2')
 $rootIterationId = projectLevelIterationsSettings -org $org -projectID $projectID -rootIterationName $projectIterationNameForThisTeam -subject $adminGroup.descriptor -allow 7 -childIterationNamesList $childIterationNamesList
+
+if ($rootIterationId) {
+    #set backlog iteration ID
+    $setBacklogIteration = az boards iteration team set-backlog-iteration --id $rootIterationId --team $createdTeam.id --org $org -p $projectID -o json | ConvertFrom-Json 
+    Write-Host "`nSetting backlog iteration to : $($setBacklogIteration.backlogIteration.path)"
+    # Boards General Settings
+    setUpGeneralBoardSettings -org $org -projectID $projectId -teamID $createdTeam.id -epics $true -stories $true -features $true 
+}
+
+# clean up temp files for invoke requests
+Remove-Item -path .\InvokeRequests\ -recurse
