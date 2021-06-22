@@ -277,6 +277,7 @@ function setUpGeneralBoardSettings {
     printBacklogLevels -boardsTeamSettings $currentBoardsTeamSettings
 
     #update these settings
+    New-Item -ItemType Directory -Force -Path .\InvokeRequests\
     $invokeRequestsPath = Join-Path $PSScriptRoot \InvokeRequests\
     $contentFileName = $invokeRequestsPath + 'updateTeamConfig.txt'
     $contentToStoreInFile = [System.Text.StringBuilder]::new()
@@ -315,6 +316,31 @@ function setUpGeneralBoardSettings {
     printBacklogLevels -boardsTeamSettings $updatedBoardsTeamSettings
 }
 
+function setUpTeamIterations {
+    param(
+        [String]$org,
+        [String]$projectName,
+        [String]$teamID
+    )
+
+    # show backlog iteration command
+    $backlogIterationDetails = az boards iteration team show-backlog-iteration --team $teamID --org $org --project $projectName -o json | ConvertFrom-Json
+    $depthParam = '1'
+    $backlogIterationPath = $backlogIterationDetails.backlogIteration.path
+    Write-Host "`nTeam Iterations Configuration"
+    # Format iteration path to include project name and structure type
+    $backlogIterationPath = '\' + $projectName + '\Iteration\' + $backlogIterationPath 
+    $rootIteration = az boards iteration project list --path $backlogIterationPath --project $projectName --org $org --depth $depthParam -o json | ConvertFrom-Json
+    if ($rootIteration.hasChildren -eq $True) {
+        foreach ($child in $rootIteration.children) {
+            $getProjectTeamIterationID = $child.identifier
+            # add this child iteration to the given team
+            $addTeamIteration = az boards iteration team add --team $teamID --id $getProjectTeamIterationID  --project $projectName --org $org -o json | ConvertFrom-Json
+            Write-Host "Team iteration added with ID : $($addTeamIteration.id) and name:$($child.name)"
+        }
+    }
+    
+}
 
 $org = 'https://dev.azure.com/jordankelley105/'
 $teamName = 'TestingTeam'
@@ -350,6 +376,9 @@ if ($rootIterationId) {
     Write-Host "`nSetting backlog iteration to : $($setBacklogIteration.backlogIteration.path)"
     # Boards General Settings
     setUpGeneralBoardSettings -org $org -projectID $projectId -teamID $createdTeam.id -epics $true -stories $true -features $true 
+
+    # Add child iterations of backlog iteration to the given team
+    setUpTeamIterations -org $org -projectName $projectName -teamID $createdTeam.id
 }
 
 # clean up temp files for invoke requests
