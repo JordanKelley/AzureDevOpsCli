@@ -27,6 +27,19 @@ function createRepo{
     return $repo.id
 }
 
+function importRepo {
+    param (
+        [string]$org,
+        [string]$projectId,
+        [string]$repoId,
+        [string]$repoToImport
+    )
+
+    Write-Host "'nImporting repository from url $($repoToImport)"
+    $importRepo = az repos import create --org $org -p $projectId -r $repoId --git-url $repoToImport -o json | ConvertFrom-Json
+    Write-Host "Repo imported with Status $($importRepo.status)"
+}
+
 function createTeam {
     param (
         [string]$teamName,
@@ -349,7 +362,8 @@ $projectName = 'TestingProject'
 # scaffolding
 $projectId = createProject -org $org -projectName $projectName -process 'Agile' -sourceControl 'git' -visibility 'private'
 
-createRepo -org $org -projectID $projectId -repoName 'TestingRepo'
+$repoId = createRepo -org $org -projectID $projectId -repoName 'TestingRepo'
+importRepo -repoId $repoId -repoToImport 'https://github.com/octocat/Hello-World' -org $org -projectId $projectId 
 
 $createdTeam = createTeam -teamName 'TestingTeam' -org $org -projectID $projectId
 
