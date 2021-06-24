@@ -355,6 +355,17 @@ function setUpTeamIterations {
     
 }
 
+function createPipeline {
+    param(
+        [string]$projectName,
+        [string]$pipelineName,
+        [string]$pipelineDescription,
+        [string]$repositoryName,
+        [string]$repositoryType
+    )
+    az pipelines create --project $projectName --name $pipelineName --description $pipelineDescription --repository $repositoryName --repository-type $repositoryType
+}
+
 $org = 'https://dev.azure.com/jordankelley105/'
 $teamName = 'TestingTeam'
 $projectName = 'TestingProject'
@@ -394,6 +405,9 @@ if ($rootIterationId) {
     # Add child iterations of backlog iteration to the given team
     setUpTeamIterations -org $org -projectName $projectName -teamID $createdTeam.id
 }
+
+#create pipeline
+createPipeline -projectName 'TestingProject' -pipelineName 'Test Pipeline' -pipelineDescription 'Pipeline for test project' -repositoryName 'TestingRepo' -repositoryType 'tfsgit'
 
 # clean up temp files for invoke requests
 Remove-Item -path .\InvokeRequests\ -recurse
