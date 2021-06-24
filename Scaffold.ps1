@@ -407,7 +407,7 @@ if ($rootIterationId) {
     setUpTeamIterations -org $org -projectName $projectName -teamID $createdTeam.id
 }
 
-#create pipeline
+#create build pipeline
 createPipeline -projectName 'TestingProject' -pipelineName 'Test Pipeline' -pipelineDescription 'Pipeline for test project' -repositoryName 'TestingRepo' -repositoryType 'tfsgit' -yamlPath 'azure-pipelines.yml'
 
 # clean up temp files for invoke requests
