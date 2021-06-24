@@ -361,9 +361,10 @@ function createPipeline {
         [string]$pipelineName,
         [string]$pipelineDescription,
         [string]$repositoryName,
-        [string]$repositoryType
+        [string]$repositoryType,
+        [string]$yamlPath
     )
-    az pipelines create --project $projectName --name $pipelineName --description $pipelineDescription --repository $repositoryName --repository-type $repositoryType
+    az pipelines create --project $projectName --name $pipelineName --description $pipelineDescription --repository $repositoryName --repository-type $repositoryType --yaml-path $yamlPath --skip-first-run true
 }
 
 $org = 'https://dev.azure.com/jordankelley105/'
@@ -407,7 +408,7 @@ if ($rootIterationId) {
 }
 
 #create pipeline
-createPipeline -projectName 'TestingProject' -pipelineName 'Test Pipeline' -pipelineDescription 'Pipeline for test project' -repositoryName 'TestingRepo' -repositoryType 'tfsgit'
+createPipeline -projectName 'TestingProject' -pipelineName 'Test Pipeline' -pipelineDescription 'Pipeline for test project' -repositoryName 'TestingRepo' -repositoryType 'tfsgit' -yamlPath 'azure-pipelines.yml'
 
 # clean up temp files for invoke requests
 Remove-Item -path .\InvokeRequests\ -recurse
