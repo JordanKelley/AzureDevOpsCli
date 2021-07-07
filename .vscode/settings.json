@@ -1,6 +1,4 @@
 {
-    "window.zoomLevel": 3,
-    "terminal.integrated.shell.osx": "/usr/local/bin/pwsh",
     "powershell.scriptAnalysis.enable": true,
     "powershell.integratedConsole.focusConsoleOnExecute": false,
     "powershell.enableProfileLoading": false
