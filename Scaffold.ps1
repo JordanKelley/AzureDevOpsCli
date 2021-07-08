@@ -1,3 +1,4 @@
+. ./token.ps1
 function createProject{
     param(
         [String]$org,
@@ -367,6 +368,26 @@ function createPipeline {
     az pipelines create --project $projectName --name $pipelineName --description $pipelineDescription --repository $repositoryName --repository-type $repositoryType --yaml-path $yamlPath --skip-first-run true
 }
 
+function createReleasePipeline {
+    $user = ""
+    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$($user):$($token)"))
+    $header = @{
+        Authorization = "Basic $base64AuthInfo"
+    }
+
+    $body = Get-Content -Path .\body.json
+
+    $parameters = @{
+        Method = "POST"
+        Uri = "https://vsrm.dev.azure.com/jordankelley105/TestingProject/_apis/release/definitions?api-version=6.0"
+        Body = ($body)
+        ContentType = "application/json"
+        Headers = $header
+    }
+
+    Invoke-RestMethod @parameters
+}
+
 $org = 'https://dev.azure.com/jordankelley105/'
 $teamName = 'TestingTeam'
 $projectName = 'TestingProject'
@@ -409,6 +430,8 @@ if ($rootIterationId) {
 
 #create build pipeline
 createPipeline -projectName 'TestingProject' -pipelineName 'Test Pipeline' -pipelineDescription 'Pipeline for test project' -repositoryName 'TestingRepo' -repositoryType 'tfsgit' -yamlPath 'azure-pipelines.yml'
+
+createReleasePipeline
 
 # clean up temp files for invoke requests
 Remove-Item -path .\InvokeRequests\ -recurse
