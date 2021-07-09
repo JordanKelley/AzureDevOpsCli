@@ -385,7 +385,9 @@ function createReleasePipeline {
         Headers = $header
     }
 
-    Invoke-RestMethod @parameters
+    $releaseDefinition = Invoke-RestMethod @parameters
+
+    az pipelines release create --definition-id $releaseDefinition.id --description 'test release pipeline'
 }
 
 $org = 'https://dev.azure.com/jordankelley105/'
