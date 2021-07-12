@@ -12,3 +12,4 @@
 11. Apply board settings (epics, stories, issues, etc.)
 12. Apply iterations to the newly created Team
 13. Create Build Pipeline
+14. Create Release Pipeline
